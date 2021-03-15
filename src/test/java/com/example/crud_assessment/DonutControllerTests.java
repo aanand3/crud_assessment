@@ -17,6 +17,7 @@ import javax.transaction.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.hamcrest.Matchers.is;
@@ -136,4 +137,87 @@ public class DonutControllerTests
                 .andDo(print())
                 .andExpect( content().string("This Donut does not exist") );
     }
+
+    @Transactional
+    @Rollback
+    @Test
+    public void deleteADonut() throws Exception
+    {
+        fillRepoWith3Donuts();
+
+        MockHttpServletRequestBuilder deleteRequest = delete("/donuts/2")
+                .contentType(MediaType.TEXT_PLAIN);
+
+        mvc.perform(deleteRequest)
+                .andExpect(status().isOk())
+                .andDo(print())
+                .andExpect(content().string("Donut 2 has been deleted"));
+    }
+
+    @Transactional
+    @Rollback
+    @Test
+    public void deleteAFakeDonutFails() throws Exception
+    {
+        fillRepoWith3Donuts();
+
+        MockHttpServletRequestBuilder deleteRequest = delete("/donuts/2000")
+                .contentType(MediaType.TEXT_PLAIN);
+
+        mvc.perform(deleteRequest)
+                .andExpect(status().isOk())
+                .andDo(print())
+                .andExpect(content().string("This Donut does not exist"));
+    }
+
+    @Transactional
+    @Rollback
+    @Test
+    public void patchEntry2toMakeIt2000() throws Exception
+    {
+        fillRepoWith3Donuts();
+
+        var patches = Map.of("name", "donut2000");
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        MockHttpServletRequestBuilder patchRequest = patch("/donuts/2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(patches));
+
+        mvc.perform(patchRequest)
+                .andExpect(status().isOk())
+                .andDo(print())
+                .andExpect(jsonPath("$.name", is("donut2000")));
+
+        // double checking that the full list got fixed
+        MockHttpServletRequestBuilder getRequest = get("/donuts")
+                .contentType(MediaType.TEXT_PLAIN);
+
+        mvc.perform(getRequest)
+                .andExpect(status().isOk())
+                .andDo(print())
+                .andExpect( jsonPath("$[1].name", is("donut2000")) );
+    }
+
+    @Transactional
+    @Rollback
+    @Test
+    public void patchADonutWhichDoesntYetExist() throws Exception
+    {
+        var patches = Map.of("name", "donut2000",
+                                                    "topping", "sprinkles");
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        MockHttpServletRequestBuilder patchRequest = patch("/donuts/2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(patches));
+
+        mvc.perform(patchRequest)
+                .andExpect(status().isOk())
+                .andDo(print())
+                .andExpect(jsonPath("$.name", is("donut2000")));
+    }
+
 }
